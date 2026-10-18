@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f7f5" />
+    <meta name="description" content="Thu thập bài đăng, bình luận và tương tác Facebook bằng Playwright trên máy của bạn." />
+    <title>Facebook Scraper</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="site-title" href="#top">Facebook Scraper</a>
+      <nav class="top-nav" aria-label="Điều hướng chính">
+        <a class="nav-link active" href="#configure">Scraper</a>
+        <a class="nav-link" href="#results">Dataset</a>
+      </nav>
+      <div class="top-actions">
+        <span class="connection-dot"></span>
+        <span class="connection-label">Playwright local</span>
+      </div>
+    </header>
+
+    <main id="top" class="page-wrap">
+      <div class="breadcrumb"><span>Facebook</span><span class="crumb-sep">/</span><strong>Playwright Scraper</strong></div>
+
+      <section class="hero">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-icon">f</span> FACEBOOK DATA EXTRACTOR <span class="feature-pill"><span></span> POSTS · COMMENTS · REACTIONS</span></div>
+          <h1>Facebook Scraper</h1>
+          <p class="hero-copy">Tìm bài đăng Facebook, xem bình luận và số liệu tương tác. Xuất dữ liệu thành JSON hoặc CSV.</p>
+        </div>
+        <div class="hero-side-note"><span class="shield-icon">⌂</span><span>Playwright chạy trên máy này.<br /><strong>Mật khẩu chỉ được đọc từ web/.env.</strong></span></div>
+      </section>
+
+      <section id="configure" class="workspace-grid" aria-label="Cấu hình scraper">
+        <form id="scrape-form" class="panel config-panel">
+          <div class="panel-heading">
+            <div>
+              <div class="section-kicker">CẤU HÌNH</div>
+              <h2>Thiết lập lần chạy</h2>
+            </div>
+            <span class="ready-tag"><span></span> Sẵn sàng</span>
+          </div>
+
+          <p id="local-mode-status" class="field-help mode-status">Chế độ Playwright khả dụng khi chạy web/local_server.py trên máy này.</p>
+
+          <div id="source-field" class="source-field">
+            <label class="field-label" for="source-url">URL group, page hoặc profile Facebook <span class="required">*</span></label>
+            <div class="input-with-icon">
+              <span class="input-prefix" aria-hidden="true">↗</span>
+              <input id="source-url" name="sourceUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://www.facebook.com/groups/…" required />
+            </div>
+            <p class="field-help">Playwright mở group, cuộn timeline và thu thập tất cả bài cùng bình luận Facebook nạp được.</p>
+            <p class="field-help">Thứ tự bài viết: mới nhất trước, cũ hơn sau.</p>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <span class="field-label">Phạm vi thu thập</span>
+              <p class="field-help">Tự động quét tất cả bài đăng trong timeline và toàn bộ bình luận, kể cả câu trả lời.</p>
+            </div>
+          </div>
+
+          <div class="form-divider"></div>
+
+          <div class="section-subhead">
+            <div>
+              <span class="field-label">Bình luận và câu trả lời</span>
+              <p class="field-help compact">Không giới hạn số bình luận trên mỗi bài.</p>
+            </div>
+            <strong class="unlimited-badge">Tất cả</strong>
+          </div>
+          <label class="toggle-row">
+            <input id="include-replies" type="checkbox" checked />
+            <span class="custom-check" aria-hidden="true"></span>
+            <span><strong>Lấy cả câu trả lời</strong><small>Bao gồm các nhánh trả lời trong chuỗi bình luận.</small></span>
+          </label>
+
+          <label class="toggle-row">
+            <input id="resume-history" type="checkbox" checked />
+            <span class="custom-check" aria-hidden="true"></span>
+            <span><strong>Tiếp tục lịch sử từ điểm đã lưu</strong><small>Giữ điểm tiếp tục sau khi tắt máy. Bỏ chọn để tìm bài mới từ đầu group.</small></span>
+          </label>
+
+          <div id="playwright-note" class="local-note">
+            <strong>Chạy cục bộ bằng Playwright</strong>
+            <span id="playwright-credentials-status">Thông tin đăng nhập đọc từ web/.env; phiên Chromium được lưu cục bộ giữa các lần chạy.</span>
+            <span>Bài đăng và bình luận tự lưu trên máy; mở lại trang sẽ nạp nguồn gần nhất.</span>
+            <a href="https://github.com/Ibrahimghali/Facebook-Scraper" target="_blank" rel="noreferrer">Mã nguồn tham khảo Ibrahimghali/Facebook-Scraper ↗</a>
+          </div>
+
+          <div id="form-error" class="form-error" role="alert" hidden></div>
+          <div class="form-actions">
+            <button id="run-button" class="primary-button" type="button"><span class="play-icon">▶</span> Bắt đầu scrape <span class="button-arrow">→</span></button>
+            <button id="cancel-button" class="secondary-button" type="button" hidden>Dừng lần chạy</button>
+          </div>
+          <p class="fine-print">Chạy trên máy của bạn. Chỉ truy cập nội dung bạn có quyền xem; tuân thủ điều khoản và quyền riêng tư của Facebook.</p>
+        </form>
+
+        <aside class="side-column">
+          <section class="panel summary-panel">
+            <div class="panel-heading small-heading">
+              <div><div class="section-kicker">TÓM TẮT</div><h2>Lần chạy này</h2></div>
+              <span class="summary-glyph">◷</span>
+            </div>
+            <div class="summary-line"><span>Trang nguồn</span><strong id="summary-source">—</strong></div>
+            <div class="summary-line"><span>Bài đăng</span><strong id="summary-post-count">Tất cả</strong></div>
+            <div class="summary-line"><span>Bình luận</span><strong id="summary-comment-count">Tất cả</strong></div>
+            <div class="summary-line"><span>Trả lời</span><strong id="summary-replies">Có</strong></div>
+            <div class="local-summary-note">Chromium và API Playwright chạy trực tiếp trên máy này.</div>
+          </section>
+
+          <section class="info-card">
+            <div class="info-icon">i</div>
+            <div><strong>Giới hạn dữ liệu</strong><p>Facebook có thể thay đổi giao diện hoặc lọc kết quả. Playwright chỉ trả về nội dung đang hiển thị trong phiên đăng nhập này.</p><a href="https://github.com/Ibrahimghali/Facebook-Scraper" target="_blank" rel="noreferrer">Xem dự án tham khảo ↗</a></div>
+          </section>
+
+          <ol class="workflow-mini local-workflow">
+            <li><span class="workflow-number">01</span><span>Server local mở Chromium và đọc timeline của URL Facebook.</span></li>
+            <li><span class="workflow-number">02</span><span>Kết quả được xếp mới nhất trước, rồi trả về bảng để tải JSON/CSV.</span></li>
+          </ol>
+        </aside>
+      </section>
+
+      <section id="results" class="results-section" hidden aria-live="polite">
+        <div class="results-heading">
+          <div><div class="section-kicker">DATASET</div><h2>Kết quả scrape</h2><p id="results-caption">Dữ liệu sẽ xuất hiện ở đây khi lần chạy hoàn tất.</p></div>
+          <div class="export-actions">
+            <button id="export-json" class="export-button" type="button" disabled><span>↓</span> JSON</button>
+            <button id="export-posts-csv" class="export-button" type="button" disabled><span>↓</span> Posts CSV</button>
+            <button id="export-comments-csv" class="export-button" type="button" disabled><span>↓</span> Comments CSV</button>
+          </div>
+        </div>
+
+        <div id="run-status" class="run-status" data-state="idle">
+          <span class="status-spinner" aria-hidden="true"></span>
+          <div class="status-copy"><strong id="status-title">Đang chờ chạy</strong><span id="status-detail">Cấu hình xong rồi bấm “Bắt đầu scrape”.</span></div>
+          <span id="status-elapsed" class="status-time"></span>
+        </div>
+
+        <div class="metrics-grid">
+          <article class="metric-card"><div class="metric-label">BÀI ĐĂNG</div><div id="metric-posts" class="metric-value">—</div><div class="metric-sub">đã thu thập</div><span class="metric-icon orange">▤</span></article>
+          <article class="metric-card"><div class="metric-label">BÌNH LUẬN</div><div id="metric-comments" class="metric-value">—</div><div class="metric-sub">bao gồm replies nếu có</div><span class="metric-icon blue">☷</span></article>
+          <article class="metric-card"><div class="metric-label">CẢM XÚC</div><div id="metric-reactions" class="metric-value">—</div><div class="metric-sub">tổng trên các bài</div><span class="metric-icon yellow">♥</span></article>
+          <article class="metric-card"><div class="metric-label">LƯỢT CHIA SẺ</div><div id="metric-shares" class="metric-value">—</div><div class="metric-sub">tổng trên các bài</div><span class="metric-icon green">↗</span></article>
+        </div>
+
+        <div class="panel dataset-panel">
+          <div class="dataset-toolbar">
+            <div class="tabs" role="tablist" aria-label="Các dạng dữ liệu">
+              <button class="tab active" role="tab" aria-selected="true" data-tab="posts" type="button">Bài đăng <span id="posts-tab-count" class="tab-count">0</span></button>
+              <button class="tab" role="tab" aria-selected="false" data-tab="comments" type="button">Bình luận <span id="comments-tab-count" class="tab-count">0</span></button>
+              <button class="tab" role="tab" aria-selected="false" data-tab="reactions" type="button">Cảm xúc</button>
+              <button class="tab" role="tab" aria-selected="false" data-tab="raw" type="button">JSON thô</button>
+            </div>
+            <label class="search-box"><span aria-hidden="true">⌕</span><input id="result-search" type="search" placeholder="Tìm trong kết quả" aria-label="Tìm trong kết quả" /></label>
+          </div>
+
+          <div id="view-posts" class="dataset-view" role="tabpanel">
+            <div class="table-scroll"><table><thead><tr><th>BÀI ĐĂNG</th><th>THỜI GIAN</th><th>CẢM XÚC</th><th>BÌNH LUẬN</th><th>CHIA SẺ</th></tr></thead><tbody id="posts-table-body"></tbody></table></div>
+            <div id="posts-empty" class="empty-state">Chưa có bài đăng để hiển thị.</div>
+            <div id="posts-pagination" class="pagination"></div>
+          </div>
+
+          <div id="view-comments" class="dataset-view" role="tabpanel" hidden>
+            <div class="table-scroll"><table><thead><tr><th>Bình luận</th><th>Bài viết</th><th>Người viết</th><th>Thời gian</th><th>LIKES</th><th>Độ sâu</th></tr></thead><tbody id="comments-table-body"></tbody></table></div>
+            <div id="comments-empty" class="empty-state">Chưa có bình luận để hiển thị.</div>
+            <div id="comments-pagination" class="pagination"></div>
+          </div>
+
+          <div id="view-reactions" class="dataset-view reactions-view" role="tabpanel" hidden>
+            <div class="reaction-heading"><div><h3>Tổng cảm xúc</h3><p>Số lượt cảm xúc được đọc từ các bài đăng.</p></div><span id="reaction-total-label" class="reaction-total">0 tổng lượt</span></div>
+            <div id="reaction-bars" class="reaction-bars"></div>
+            <p id="reaction-note" class="field-help">“—” nghĩa là chưa đọc được số liệu của loại cảm xúc đó; không phải 0.</p>
+          </div>
+
+          <div id="view-raw" class="dataset-view raw-view" role="tabpanel" hidden><pre id="raw-json">[]</pre></div>
+        </div>
+        <p id="comments-note" class="dataset-note"></p>
+      </section>
+
+      <footer class="page-footer"><a href="https://github.com/Ibrahimghali/Facebook-Scraper" target="_blank" rel="noreferrer">Mã nguồn tham khảo: Ibrahimghali/Facebook-Scraper ↗</a></footer>
+    </main>
+  </body>
+</html>

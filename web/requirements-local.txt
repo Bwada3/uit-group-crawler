@@ -1,0 +1,5 @@
+playwright>=1.45,<2
+python-dotenv>=1.0,<2
+rapidocr>=3.10,<4
+onnxruntime>=1.23.2,<1.24
+Pillow>=10,<12
