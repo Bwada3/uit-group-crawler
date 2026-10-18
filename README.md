@@ -119,7 +119,6 @@ Số liệu được đọc trực tiếp từ SQLite.
 | Bài đăng trong kho | 14.970 |
 | Bình luận và câu trả lời trong kho | 81.708 |
 | Bài có trạng thái hoàn tất | 13.893 |
-| Bài chưa hoàn tất bình luận hoặc OCR | 1.077 |
 | Kiểm tra SQLite | `PRAGMA quick_check` trả về `ok` |
 
 Trạng thái hoàn tất được tính từ thông tin bình luận và OCR đã lưu trong từng bài. Các bài chưa hoàn tất được giữ lại để có thể xử lý tiếp. GitHub chỉ chứa mã nguồn và số liệu tổng hợp này; nội dung bài đăng, bình luận, media, thông tin đăng nhập và cơ sở dữ liệu nằm trên máy.
@@ -131,18 +130,6 @@ Trạng thái hoàn tất được tính từ thông tin bình luận và OCR đ
 - Giao diện nhận phần thay đổi trong lúc chạy, không tải lại toàn bộ kho.
 - JSON thô chỉ được dựng khi mở tab tương ứng, tránh xử lý toàn bộ dữ liệu khi tab đang ẩn.
 - Thử thay đổi cấu trúc SQLite trên bản sao kho thật: nội dung cũ được giữ nguyên. Việc kiểm tra không thay đổi kho gốc hoặc điểm tiếp tục phân trang.
-
-### Cấu hình tốc độ đã áp dụng trên máy
-
-```dotenv
-FACEBOOK_BROWSER_WORKERS=2
-FACEBOOK_FEED_BATCH_SIZE=30
-FACEBOOK_RESPONSE_READER=1
-FACEBOOK_REQUEST_INTERVAL_SECONDS=0
-FACEBOOK_COOLDOWN_SECONDS=900
-```
-
-OCR vẫn chạy trên CPU. Ứng dụng giữ cơ chế dừng khi Facebook báo giới hạn và lưu dữ liệu đã thu thập. Khởi động lại server sau khi sửa `.env` hoặc mã backend, rồi tải lại giao diện để áp dụng thay đổi.
 
 ## Nguồn tham khảo
 
