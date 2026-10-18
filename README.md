@@ -118,10 +118,12 @@ Số liệu được đọc trực tiếp từ SQLite.
 | --- | --- |
 | Bài đăng trong kho | 14.970 |
 | Bình luận và câu trả lời trong kho | 81.708 |
-| Bài có trạng thái hoàn tất | 13.893 |
-| Kiểm tra SQLite | `PRAGMA quick_check` trả về `ok` |
+| Lượt thả cảm xúc trên bài đăng đã ghi nhận | 120.213 |
+| Lượt chia sẻ bài đăng đã ghi nhận | 6.208 |
 
-Trạng thái hoàn tất được tính từ thông tin bình luận và OCR đã lưu trong từng bài. Các bài chưa hoàn tất được giữ lại để có thể xử lý tiếp. GitHub chỉ chứa mã nguồn và số liệu tổng hợp này; nội dung bài đăng, bình luận, media, thông tin đăng nhập và cơ sở dữ liệu nằm trên máy.
+Tổng cảm xúc và lượt chia sẻ được cộng từ số liệu đã đọc được trên bài đăng; các giá trị chưa xác định không được cộng vào tổng.
+
+Các bài chưa hoàn tất được giữ lại để có thể xử lý tiếp. GitHub chỉ chứa mã nguồn và số liệu tổng hợp này; nội dung bài đăng, bình luận, media, thông tin đăng nhập và cơ sở dữ liệu nằm trên máy.
 
 ### Lưu dữ liệu trong lúc scrape
 
