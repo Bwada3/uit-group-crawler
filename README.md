@@ -110,13 +110,37 @@ Các kiểm thử dùng cơ sở dữ liệu tạm và phản hồi giả; khôn
 
 ## Kết quả kiểm tra và tối ưu
 
-Ghi nhận ngày **17–18/10/2026**. Số lượng dữ liệu dưới đây là ảnh chụp trạng thái kho tại thời điểm kiểm tra.
+### Kho dữ liệu hiện tại
+
+Ghi nhận lúc **20:13 ngày 18/10/2026 (UTC+7)** bằng cách đọc trực tiếp SQLite. Số lượng dưới đây phản ánh trạng thái kho tại thời điểm chụp số liệu.
 
 | Hạng mục | Kết quả |
 | --- | --- |
-| Bài đăng trong kho | 8.506 |
-| Bình luận và câu trả lời trong kho | 43.799 |
+| Bài đăng trong kho | 14.970 |
+| Bình luận và câu trả lời trong kho | 81.708 |
+| Bài có trạng thái hoàn tất | 13.893 |
+| Bài chưa hoàn tất bình luận hoặc OCR | 1.077 |
+| Lần ghi bài gần nhất | 14:23:54 ngày 18/10/2026 (UTC+7) |
 | Kiểm tra SQLite | `PRAGMA quick_check` trả về `ok` |
+
+So với lần ghi nhận 8.506 bài và 43.799 bình luận trước đó, kho tăng **6.464 bài và 37.909 bình luận**. Trạng thái hoàn tất được tính từ thông tin bình luận và OCR đã lưu trong từng bài.
+
+Hàng đợi hiện ghi nhận **13.901 tác vụ**:
+
+| Trạng thái tác vụ | Số lượng |
+| --- | --- |
+| Hoàn tất (`done`) | 12.802 |
+| Chưa hoàn tất (`partial`) | 1.075 |
+| Gặp lỗi (`failed`) | 24 |
+
+Các bài và tác vụ chưa hoàn tất được giữ lại để có thể xử lý tiếp. GitHub chỉ chứa mã nguồn và số liệu tổng hợp này; nội dung bài đăng, bình luận, media, thông tin đăng nhập và cơ sở dữ liệu nằm trên máy.
+
+### Kết quả kiểm thử đã ghi nhận
+
+Các kết quả sau được ghi nhận trong đợt kiểm tra ngày **17–18/10/2026**, trước lần cập nhật số liệu kho ở trên.
+
+| Hạng mục | Kết quả |
+| --- | --- |
 | Bộ kiểm thử toàn dự án | 182 test đạt sau thay đổi lưu dữ liệu và cập nhật giao diện |
 | Kiểm tra lại giao diện sau tối ưu hiển thị JSON | 11 test đạt; các test này nằm trong bộ kiểm thử giao diện, không cộng thêm vào tổng trên |
 | Kiểm tra sau khi bỏ giãn cách chủ động | 42 test đạt: 26 test điều phối yêu cầu và 16 test server/lưu dữ liệu; chưa chạy lại toàn bộ bộ kiểm thử ở bước này |
