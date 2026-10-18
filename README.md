@@ -9,7 +9,7 @@
 - Lưu ảnh và nhận dạng chữ bằng RapidOCR trên CPU.
 - Đọc số cảm xúc theo từng loại khi Facebook cung cấp số liệu trực tiếp; không mở bảng chi tiết cảm xúc.
 - Với group: lưu nội dung bài ngay, bổ sung bình luận theo từng đợt và cập nhật OCR sau.
-- Khi đang scrape, giao diện nhận phần dữ liệu vừa lưu khoảng mỗi 1,4 giây; không chờ hoàn tất bình luận hoặc OCR và không tải lại toàn bộ kho mỗi lần.
+- Giao diện cập nhật phần dữ liệu vừa lưu, không chờ hoàn tất bình luận hoặc OCR và không tải lại toàn bộ kho.
 - Lưu SQLite, hàng đợi permalink và điểm phân trang để tiếp tục sau khi dừng hoặc khởi động lại.
 - Bỏ qua các bài đã hoàn tất theo ID/URL; bài thiếu bình luận hoặc OCR có thể được xử lý lại.
 - Xuất dữ liệu thành JSON, CSV bài đăng và CSV bình luận.
@@ -49,11 +49,11 @@ Các thiết lập có trong [web/.env.example](web/.env.example):
 | `FACEBOOK_BROWSER_WORKERS` | Số trình đọc bài. Có thể dùng `1` để giảm số yêu cầu đồng thời. |
 | `FACEBOOK_RESPONSE_READER` | `1`: đọc phản hồi Facebook đã xác minh; tự chuyển sang DOM khi không hỗ trợ. `0`: dùng DOM. |
 | `FACEBOOK_REQUEST_INTERVAL_SECONDS` | Khoảng cách chủ động giữa các yêu cầu lấy dữ liệu, mặc định `0` (không chờ). |
-| `FACEBOOK_COOLDOWN_SECONDS` | Thời gian tạm nghỉ ban đầu khi bị giới hạn, mặc định 900 giây. |
+| `FACEBOOK_COOLDOWN_SECONDS` | Cấu hình tạm nghỉ khi Facebook báo giới hạn. |
 | `FACEBOOK_FEED_BATCH_SIZE` | Số bài đề nghị trên mỗi trang feed; Facebook có thể trả ít hơn. |
 | `FACEBOOK_ASSET_CACHE` | Bộ đệm tài nguyên thử nghiệm, mặc định tắt. |
 
-Ứng dụng tôn trọng `Retry-After` nếu có, lưu thời gian tạm nghỉ trong SQLite và tăng khoảng nghỉ khi lỗi lặp lại. Đây là lịch chờ của ứng dụng, không phải cam kết Facebook đã gỡ giới hạn. Lỗi từ yêu cầu nền được phân loại riêng; thông tin chẩn đoán nằm trong `facebookCooldown.lastSignal` tại `/api/health`.
+Ứng dụng tôn trọng `Retry-After` nếu có và lưu trạng thái giới hạn trong SQLite. Lỗi từ yêu cầu nền được phân loại riêng; thông tin chẩn đoán nằm trong `facebookCooldown.lastSignal` tại `/api/health`.
 
 ## Dữ liệu và tiếp tục scrape
 
@@ -67,7 +67,7 @@ Giữ tùy chọn **Tiếp tục lịch sử từ điểm đã lưu** để xử
 
 Điểm phân trang gắn với tài khoản và chế độ sắp xếp. Đổi tài khoản có thể khiến điểm cũ không dùng được, dù kho dữ liệu và các permalink đang chờ vẫn còn. Chỉ sửa `.env` không tự thay đổi phiên Chrome đã đăng nhập.
 
-Facebook quyết định thứ tự và phạm vi bài/bình luận được trả về. Sắp xếp dữ liệu xuất theo thời gian không bảo đảm đã phát hiện đủ mọi bài mới. Số liệu chưa đọc được được giữ là chưa xác định, không mặc định bằng 0. Không có cam kết tốc độ hoặc tránh được mọi giới hạn của Facebook.
+Facebook quyết định thứ tự và phạm vi bài/bình luận được trả về. Số liệu chưa đọc được được giữ là chưa xác định, không mặc định bằng 0. Không có cam kết thu thập đủ mọi bài hoặc tránh được mọi giới hạn của Facebook.
 
 ## Cấu trúc mã nguồn
 
@@ -110,9 +110,9 @@ Các kiểm thử dùng cơ sở dữ liệu tạm và phản hồi giả; khôn
 
 ## Kết quả kiểm tra và tối ưu
 
-### Kho dữ liệu hiện tại
+### Kho dữ liệu
 
-Ghi nhận lúc **20:13 ngày 18/10/2026 (UTC+7)** bằng cách đọc trực tiếp SQLite. Số lượng dưới đây phản ánh trạng thái kho tại thời điểm chụp số liệu.
+Số liệu được đọc trực tiếp từ SQLite.
 
 | Hạng mục | Kết quả |
 | --- | --- |
@@ -120,49 +120,17 @@ Ghi nhận lúc **20:13 ngày 18/10/2026 (UTC+7)** bằng cách đọc trực ti
 | Bình luận và câu trả lời trong kho | 81.708 |
 | Bài có trạng thái hoàn tất | 13.893 |
 | Bài chưa hoàn tất bình luận hoặc OCR | 1.077 |
-| Lần ghi bài gần nhất | 14:23:54 ngày 18/10/2026 (UTC+7) |
 | Kiểm tra SQLite | `PRAGMA quick_check` trả về `ok` |
 
-So với lần ghi nhận 8.506 bài và 43.799 bình luận trước đó, kho tăng **6.464 bài và 37.909 bình luận**. Trạng thái hoàn tất được tính từ thông tin bình luận và OCR đã lưu trong từng bài.
-
-Hàng đợi hiện ghi nhận **13.901 tác vụ**:
-
-| Trạng thái tác vụ | Số lượng |
-| --- | --- |
-| Hoàn tất (`done`) | 12.802 |
-| Chưa hoàn tất (`partial`) | 1.075 |
-| Gặp lỗi (`failed`) | 24 |
-
-Các bài và tác vụ chưa hoàn tất được giữ lại để có thể xử lý tiếp. GitHub chỉ chứa mã nguồn và số liệu tổng hợp này; nội dung bài đăng, bình luận, media, thông tin đăng nhập và cơ sở dữ liệu nằm trên máy.
-
-### Kết quả kiểm thử đã ghi nhận
-
-Các kết quả sau được ghi nhận trong đợt kiểm tra ngày **17–18/10/2026**, trước lần cập nhật số liệu kho ở trên.
-
-| Hạng mục | Kết quả |
-| --- | --- |
-| Bộ kiểm thử toàn dự án | 182 test đạt sau thay đổi lưu dữ liệu và cập nhật giao diện |
-| Kiểm tra lại giao diện sau tối ưu hiển thị JSON | 11 test đạt; các test này nằm trong bộ kiểm thử giao diện, không cộng thêm vào tổng trên |
-| Kiểm tra sau khi bỏ giãn cách chủ động | 42 test đạt: 26 test điều phối yêu cầu và 16 test server/lưu dữ liệu; chưa chạy lại toàn bộ bộ kiểm thử ở bước này |
+Trạng thái hoàn tất được tính từ thông tin bình luận và OCR đã lưu trong từng bài. Các bài chưa hoàn tất được giữ lại để có thể xử lý tiếp. GitHub chỉ chứa mã nguồn và số liệu tổng hợp này; nội dung bài đăng, bình luận, media, thông tin đăng nhập và cơ sở dữ liệu nằm trên máy.
 
 ### Lưu dữ liệu trong lúc scrape
 
 - Đã xác minh nội dung bài được ghi xuống SQLite trước khi hoàn tất bình luận và OCR; bình luận được lưu theo từng đợt.
 - Thử cho tiến trình thoát khi bài chưa hoàn tất: nội dung và bình luận đã ghi vẫn đọc lại được; bài chưa hoàn tất vẫn có thể được xử lý tiếp.
-- Đã sửa tình trạng giao diện chỉ nạp kho khi lượt scrape kết thúc. Giao diện nhận phần thay đổi khoảng mỗi 1,4 giây trong lúc chạy, không tải lại toàn bộ kho mỗi lần.
+- Giao diện nhận phần thay đổi trong lúc chạy, không tải lại toàn bộ kho.
 - JSON thô chỉ được dựng khi mở tab tương ứng, tránh xử lý toàn bộ dữ liệu khi tab đang ẩn.
 - Thử thay đổi cấu trúc SQLite trên bản sao kho thật: nội dung cũ được giữ nguyên. Việc kiểm tra không thay đổi kho gốc hoặc điểm tiếp tục phân trang.
-
-### Thời gian đọc kho cục bộ
-
-Một phép đo trên bản sao kho gồm 8.506 bài và 43.799 bình luận cho kết quả:
-
-| Thao tác | Thời gian |
-| --- | --- |
-| Đọc toàn bộ dữ liệu của nguồn | 0,7122 giây |
-| Đọc phần thay đổi của một bài thử nghiệm | 0,0016 giây (1,6 ms) |
-
-Phần thay đổi của bài thử nghiệm có kích thước 340 byte. Đây là phép đo đọc SQLite trên máy, chưa bao gồm truyền HTTP, dựng giao diện, tải dữ liệu Facebook hoặc OCR; không dùng để suy ra số bài scrape mỗi giờ.
 
 ### Cấu hình tốc độ đã áp dụng trên máy
 
@@ -174,7 +142,7 @@ FACEBOOK_REQUEST_INTERVAL_SECONDS=0
 FACEBOOK_COOLDOWN_SECONDS=900
 ```
 
-OCR vẫn chạy trên CPU. Khoảng chờ chủ động giữa các yêu cầu đã được đặt về 0; cơ chế dừng khi Facebook báo giới hạn và lưu dữ liệu đã thu thập vẫn được giữ. Chưa đo lại tốc độ bài/giờ trên Facebook thật với cấu hình này. Khởi động lại server sau khi sửa `.env` hoặc mã backend, rồi tải lại giao diện để áp dụng thay đổi.
+OCR vẫn chạy trên CPU. Ứng dụng giữ cơ chế dừng khi Facebook báo giới hạn và lưu dữ liệu đã thu thập. Khởi động lại server sau khi sửa `.env` hoặc mã backend, rồi tải lại giao diện để áp dụng thay đổi.
 
 ## Nguồn tham khảo
 
