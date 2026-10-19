@@ -34,6 +34,8 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
     errors = []
     order = {}
     saved_count = saved_comments = 0
+    new_saved_count = updated_count = 0
+    initially_captured_ids = set()
     try:
         worker_count = min(4,max(0,int(os.environ.get('FACEBOOK_BROWSER_WORKERS','2'))))
     except ValueError:
@@ -88,7 +90,7 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
         pending_ocr.append((task,pipeline.submit(post)))
 
     def collect(block=False):
-        nonlocal saved_count,saved_comments
+        nonlocal saved_count,saved_comments,new_saved_count,updated_count
         failures=[]
 
         def failed_read(task,error):
@@ -135,8 +137,12 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
                     posts.append(post)
                 saved_count+=1
                 saved_comments+=len(post['comments'])
+                if task['post_id'] in initially_captured_ids:
+                    updated_count+=1
+                else:
+                    new_saved_count+=1
                 pending_ocr.remove(item)
-                progress('running',min(94,15+saved_count),f'Đã lưu/cập nhật {saved_count} bài và {saved_comments} bình luận…')
+                progress('running',min(94,15+saved_count),f'Đã lưu mới {new_saved_count} bài; cập nhật {updated_count} bài trong kho.')
             except Exception as error:
                 # Keep the durable OCR checkpoint and continue saving the rest.
                 failures.append(error)
@@ -162,9 +168,10 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
                     on_source(page.url,aliases)
                     completed_ids.update(post_id(url) for url in known_urls)
                 queue=TaskQueue(source_url)
+                initially_captured_ids.update(queue.captured_ids)
                 discovered_ids.update(queue.identities())
                 direct=bool(adapter._canonical_group_permalink(page.url,keys))
-                recovering=bool(queue.queued_count())
+                recovering=bool(queue.unread_count())
                 feed_attempted=False
                 if not direct and replay_urls is None and os.environ.get('FACEBOOK_NATIVE_FEED','1')!='0':
                     from local_feed import NativeFeed
@@ -189,7 +196,7 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
                 capacity=worker_count if workers else 1
                 last_new=last_scan=time.monotonic()
                 discovery_changes=0
-                progress('running',15,'Đang bổ sung dữ liệu cho các bài chưa hoàn tất trong hàng đợi…' if recovering else 'Đang đưa permalink vào hàng đợi và đọc bài song song…')
+                progress('running',15,'Đang khôi phục các permalink chưa đọc trong hàng đợi…' if recovering else 'Đang tiếp tục phân trang và ưu tiên bài chưa có trong kho…')
                 while not cancelled():
                     collect()
                     gate.check()
@@ -197,10 +204,40 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
                         break
                     if cancelled():
                         break
+                    if not direct and replay_urls is None and not recovering and queue.unread_count()<30 and time.monotonic()-last_scan>=.9:
+                        adapter._assert_group_timeline(page,keys)
+                        urls=[];changed=False;added=0
+                        native_added=feed.added if feed else 0
+                        if feed and feed.ready:
+                            feed.fetch_next()
+                        elif feed and not feed_attempted:
+                            feed_attempted=True
+                            feed.bootstrap(cancelled)
+                        else:
+                            urls,changed=discover(adapter,page,keys,known,cancelled)
+                            added=queue.add(urls)
+                            discovered_ids.update(post_id(url) for url in urls)
+                        if feed:
+                            added+=feed.added-native_added
+                            discovered_ids.update(feed.ids)
+                        if workers is not None:
+                            workers.keys.update(keys)
+                        if added:
+                            last_new=time.monotonic()
+                        if changed:
+                            discovery_changes+=1
+                            if discovery_changes>3:
+                                raise RuntimeError('Card chưa có permalink sau khi quét lại; các URL đã phát hiện vẫn được giữ trong hàng đợi để tiếp tục.')
+                        else:
+                            discovery_changes=0
+                            if not added and not cancelled() and not (feed and feed.ready):
+                                advance_feed(page)
+                        last_scan=time.monotonic()
                     while len(pending_reads)<capacity and len(pending_ocr)<3 and not cancelled():
                         if max_posts and saved_count+len(pending_reads)+len(pending_ocr)>=max_posts:
                             break
-                        task=queue.next()
+                        task=queue.next(unread_only=recovering or bool(
+                            feed and (not feed_attempted or (feed.ready and feed.state['hasNext']))))
                         if task is None:
                             break
                         if normalize_post_url(task['post_url']) in known_urls or task['post_id'] in completed_ids:
@@ -241,42 +278,13 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
                             break
                         page.wait_for_timeout(50)
                         continue
-                    # Finish durable URLs left by an earlier run before loading
-                    # further feed pages. New work still pipelines normally.
+                    # Recover never-captured URLs before advancing their saved cursor.
+                    # Old partial captures must not block further discovery.
                     if recovering:
-                        if pending_reads or pending_ocr or queue.queued_count():
+                        if pending_reads or pending_ocr or queue.unread_count():
                             page.wait_for_timeout(50)
                             continue
                         recovering=False
-                    if queue.queued_count()<30 and time.monotonic()-last_scan>=.9:
-                        adapter._assert_group_timeline(page,keys)
-                        urls=[];changed=False;added=0
-                        native_added=feed.added if feed else 0
-                        if feed and feed.ready:
-                            feed.fetch_next()
-                        elif feed and not feed_attempted:
-                            feed_attempted=True
-                            feed.bootstrap(cancelled)
-                        else:
-                            urls,changed=discover(adapter,page,keys,known,cancelled)
-                            added=queue.add(urls)
-                            discovered_ids.update(post_id(url) for url in urls)
-                        if feed:
-                            added+=feed.added-native_added
-                            discovered_ids.update(feed.ids)
-                        if workers is not None:
-                            workers.keys.update(keys)
-                        if added:
-                            last_new=time.monotonic()
-                        if changed:
-                            discovery_changes+=1
-                            if discovery_changes>3:
-                                raise RuntimeError('Card chưa có permalink sau khi quét lại; các URL đã phát hiện vẫn được giữ trong hàng đợi để tiếp tục.')
-                        else:
-                            discovery_changes=0
-                            if not added and not cancelled() and not (feed and feed.ready):
-                                advance_feed(page)
-                        last_scan=time.monotonic()
                     if not pending_reads and not pending_ocr and not queue.queued_count() and time.monotonic()-last_new>=adapter.NO_NEW_POST_TIMEOUT_SECONDS:
                         break
                     page.wait_for_timeout(50)

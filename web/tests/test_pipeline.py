@@ -78,7 +78,7 @@ class PipelineRegression(unittest.TestCase):
     def run_group(self, **options):
         with patch.object(scraper,'sync_playwright',self.existing()),patch.object(scraper,'_open_source_page',lambda *args:None):
             return scraper.scrape_facebook_posts(email='',password='',source_url=GROUP,include_replies=True,
-                progress=lambda *args:None,cancelled=lambda:False,known_group_keys=KEYS,max_posts=options.pop('max_posts',2),**options)
+                progress=options.pop('progress',lambda *args:None),cancelled=lambda:False,known_group_keys=KEYS,max_posts=options.pop('max_posts',2),**options)
 
     def test_foreign_group_cannot_become_alias(self):
         keys=set(KEYS)
@@ -92,7 +92,7 @@ class PipelineRegression(unittest.TestCase):
         events=[]
         class FakeFeed:
             def __init__(self,adapter,page,queue,keys,known,progress,resume=True):
-                self.queue=queue;self.ready=False;self.saved={'cursor':'saved'};self.added=0;self.ids=set()
+                self.queue=queue;self.ready=False;self.saved={'cursor':'saved'};self.added=0;self.ids=set();self.state={'hasNext':True}
             def bootstrap(self,cancelled):events.append('resume-feed');self.ready=True;return True
             def fetch_next(self):
                 self.added+=self.queue.add([URLS[1]])
@@ -108,6 +108,60 @@ class PipelineRegression(unittest.TestCase):
         self.assertEqual(len(posts),2)
         self.assertLess(events.index(URLS[0]),events.index('resume-feed'))
         self.assertLess(events.index('resume-feed'),events.index(URLS[1]))
+
+    def test_partial_backlog_does_not_block_finding_unseen_posts(self):
+        self.route_feed()
+        old={'id':URLS[0],'url':URLS[0],'text':'Stored partial','author':'Author',
+             'media':[],'comments':[],'commentsComplete':False,'ocrStatus':'no_image'}
+        store.save_post(GROUP,old,[])
+        queue=TaskQueue(GROUP);queue.add([URLS[0]])
+        task=queue.next();queue.update(task,'partial',{'post':old})
+        events=[]
+        class FakeFeed:
+            def __init__(self,adapter,page,queue,keys,known,progress,resume=True):
+                self.queue=queue;self.ready=False;self.added=0;self.ids=set();self.state={'hasNext':True};self.pages=0
+            def bootstrap(self,cancelled):events.append('resume-feed');self.ready=True;return True
+            def fetch_next(self):
+                self.pages+=1;events.append('feed-page')
+                if self.pages==2:
+                    self.added+=self.queue.add([URLS[1]]);self.ids.add('222222')
+            def close(self):pass
+        def extract(article,include_replies,page,*args,**kwargs):
+            events.append(page.url)
+            return {'id':page.url,'url':page.url,'text':'New body','author':'Author','media':[],
+                    'comments':[],'commentsComplete':True},[]
+        with patch.dict(os.environ,{'FACEBOOK_NATIVE_FEED':'1'}),patch('local_feed.NativeFeed',FakeFeed), \
+             patch('local_discovery.discover',side_effect=AssertionError('Native cursor must be used')), \
+             patch.object(scraper,'_extract_post',extract):
+            posts,_=self.run_group(max_posts=1)
+        self.assertEqual([p['url'] for p in posts],[URLS[1]])
+        self.assertNotIn(URLS[0],events)
+        self.assertEqual(events.count('feed-page'),2)
+        with store._connect() as c:
+            self.assertEqual(c.execute('SELECT state FROM scrape_tasks WHERE post_id=?',('111111',)).fetchone()[0],'queued')
+        self.assertFalse(next(p for p in store.load_saved_data(GROUP)['posts'] if p['url']==URLS[0])['commentsComplete'])
+
+    def test_partial_posts_are_still_retried_after_native_feed_is_exhausted(self):
+        self.route_feed();queue=TaskQueue(GROUP);queue.add([URLS[0]])
+        task=queue.next()
+        queue.update(task,'partial',{'post':{'id':URLS[0],'url':URLS[0],'text':'Partial',
+                                           'media':[],'comments':[],'commentsComplete':False}})
+        events=[]
+        class FakeFeed:
+            def __init__(self,adapter,page,queue,keys,known,progress,resume=True):
+                self.ready=False;self.added=0;self.ids=set();self.state={'hasNext':True}
+            def bootstrap(self,cancelled):self.ready=True;return True
+            def fetch_next(self):events.append('end-feed');self.state={'hasNext':False}
+            def close(self):pass
+        def extract(article,include_replies,page,*args,**kwargs):
+            events.append(page.url)
+            return {'id':page.url,'url':page.url,'text':'Completed body','author':'Author',
+                    'media':[],'comments':[],'commentsComplete':True},[]
+        with patch.dict(os.environ,{'FACEBOOK_NATIVE_FEED':'1'}),patch('local_feed.NativeFeed',FakeFeed), \
+             patch.object(scraper,'_extract_post',extract):
+            posts,_=self.run_group(max_posts=1)
+        self.assertEqual([p['url'] for p in posts],[URLS[0]])
+        self.assertLess(events.index('end-feed'),events.index(URLS[0]))
 
     def test_resolved_card_cached_until_dom_changes(self):
         from local_discovery import discover
@@ -437,6 +491,23 @@ class PipelineRegression(unittest.TestCase):
             posts,_=self.run_group()
         self.assertIn(URLS[0],reads)
         self.assertEqual(len(posts),2)
+
+    def test_progress_distinguishes_new_posts_from_updates(self):
+        self.route_feed()
+        store.save_post(GROUP,{'id':URLS[0],'url':URLS[0],'text':'Stored partial',
+                              'media':[],'comments':[],'commentsComplete':False},[])
+        queue=TaskQueue(GROUP);queue.add([URLS[0]])
+        task=queue.next()
+        queue.update(task,'partial',{'post':{'id':URLS[0],'url':URLS[0],'text':'Stored partial',
+                                           'media':[],'comments':[],'commentsComplete':False}})
+        messages=[]
+        def extract(article,include_replies,page,*args,**kwargs):
+            return {'id':page.url,'url':page.url,'text':'Body','author':'Author','media':[],
+                    'comments':[],'commentsComplete':True},[]
+        with patch.object(scraper,'_extract_post',extract):
+            posts,_=self.run_group(progress=lambda status,percent,message:messages.append(message))
+        self.assertEqual(len(posts),2)
+        self.assertTrue(any('lưu mới 1 bài; cập nhật 1 bài' in message for message in messages))
 
     def test_profile_lease_rejects_second_owner_and_recovers(self):
         from local_profile import ProfileLease

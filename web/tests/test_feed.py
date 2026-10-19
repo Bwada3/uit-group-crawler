@@ -81,6 +81,37 @@ class FeedRegression(unittest.TestCase):
         self.assertEqual(state,{'cursor':'next','hasNext':True})
         self.assertIn('alias',keys)
 
+    def test_existing_partial_without_task_payload_does_not_count_as_unread(self):
+        old=SOURCE+'/permalink/111111/';new=SOURCE+'/permalink/222222/'
+        store.save_post(SOURCE,{'url':old,'text':'Stored','commentsComplete':False},[])
+        queue=TaskQueue(SOURCE);queue.add([old,new])
+        self.assertEqual(queue.unread_count(),1)
+        selected=queue.next(unread_only=True)
+        self.assertEqual(selected['post_url'],new)
+        self.assertIsNone(queue.next(unread_only=True))
+        self.assertEqual(queue.next()['post_url'],old)
+
+    def test_checkpoint_retries_follow_unseen_urls_and_keep_payload(self):
+        old=SOURCE+'/permalink/111111/';new=SOURCE+'/permalink/222222/'
+        self.queue.add([old]);task=self.queue.next()
+        payload={'post':{'url':old,'text':'Stored','commentsComplete':False}}
+        self.queue.update(task,'partial',payload)
+        queue=TaskQueue(SOURCE);queue.add([new])
+        self.assertEqual(queue.unread_count(),1)
+        self.assertEqual(queue.next()['post_url'],new)
+        recovered=queue.next()
+        self.assertEqual(recovered['post_url'],old)
+        self.assertEqual(json.loads(recovered['payload_json']),payload)
+
+    def test_media_recovery_precedes_unseen_posts_without_reopening_partial(self):
+        old=SOURCE+'/permalink/111111/';new=SOURCE+'/permalink/222222/'
+        self.queue.add([old]);task=self.queue.next()
+        self.queue.update(task,'ocr_running',{'post':{'url':old,'media':[],'commentsComplete':True}})
+        queue=TaskQueue(SOURCE);queue.add([new])
+        self.assertEqual(queue.unread_count(),1)
+        self.assertEqual(queue.next(unread_only=True)['state'],'media_pending')
+        self.assertEqual(queue.next(unread_only=True)['post_url'],new)
+
     def test_story_observer_receives_only_verified_top_level_posts(self):
         raw=stream_data(payload());raw['node']['group_feed']['edges'][0]=story('111111','foreign')
         seen=[];urls,_=page_urls(scraper,json.dumps({'data':raw}),GROUP,{GROUP},seen.append)
