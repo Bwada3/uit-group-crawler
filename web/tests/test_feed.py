@@ -103,6 +103,26 @@ class FeedRegression(unittest.TestCase):
         self.assertEqual(recovered['post_url'],old)
         self.assertEqual(json.loads(recovered['payload_json']),payload)
 
+    def test_old_failed_url_without_capture_does_not_block_unread_work(self):
+        old=SOURCE+'/permalink/111111/';new=SOURCE+'/permalink/222222/'
+        self.queue.add([old]);task=self.queue.next()
+        self.queue.update(task,'failed',error='Permalink post not visible')
+        restarted=TaskQueue(SOURCE);restarted.add([new])
+        self.assertEqual(restarted.unread_count(),1)
+        self.assertEqual(restarted.next(unread_only=True)['post_url'],new)
+        self.assertIsNone(restarted.next(unread_only=True))
+        retry=restarted.next()
+        self.assertEqual(retry['post_url'],old)
+        self.assertEqual(retry['error'],'Permalink post not visible')
+
+    def test_failed_new_read_is_deferred_instead_of_remaining_unread(self):
+        url=SOURCE+'/permalink/111111/'
+        self.queue.add([url]);task=self.queue.next(unread_only=True)
+        self.queue.update(task,'queued',error='Permalink post not visible')
+        self.assertEqual(self.queue.unread_count(),0)
+        self.assertIsNone(self.queue.next(unread_only=True))
+        self.assertEqual(self.queue.next()['post_url'],url)
+
     def test_media_recovery_precedes_unseen_posts_without_reopening_partial(self):
         old=SOURCE+'/permalink/111111/';new=SOURCE+'/permalink/222222/'
         self.queue.add([old]);task=self.queue.next()

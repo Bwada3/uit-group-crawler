@@ -163,6 +163,31 @@ class PipelineRegression(unittest.TestCase):
         self.assertEqual([p['url'] for p in posts],[URLS[0]])
         self.assertLess(events.index('end-feed'),events.index(URLS[0]))
 
+    def test_old_permalink_failures_do_not_block_resuming_native_feed(self):
+        self.route_feed();queue=TaskQueue(GROUP);queue.add([URLS[0]])
+        task=queue.next();queue.update(task,'failed',error='Permalink post not visible after 12 seconds')
+        events=[]
+        class FakeFeed:
+            def __init__(self,adapter,page,queue,keys,known,progress,resume=True):
+                self.queue=queue;self.ready=False;self.added=0;self.ids=set();self.state={'hasNext':True}
+            def bootstrap(self,cancelled):events.append('resume-feed');self.ready=True;return True
+            def fetch_next(self):
+                self.added+=self.queue.add([URLS[1]]);self.ids.add('222222')
+            def close(self):pass
+        def extract(article,include_replies,page,*args,**kwargs):
+            events.append(page.url)
+            return {'id':page.url,'url':page.url,'text':'New body','author':'Author',
+                    'media':[],'comments':[],'commentsComplete':True},[]
+        with patch.dict(os.environ,{'FACEBOOK_NATIVE_FEED':'1'}),patch('local_feed.NativeFeed',FakeFeed), \
+             patch.object(scraper,'_extract_post',extract):
+            posts,_=self.run_group(max_posts=1)
+        self.assertEqual([p['url'] for p in posts],[URLS[1]])
+        self.assertNotIn(URLS[0],events)
+        self.assertIn('resume-feed',events)
+        with store._connect() as c:
+            row=c.execute('SELECT error FROM scrape_tasks WHERE post_id=?',('111111',)).fetchone()
+        self.assertEqual(row[0],'Permalink post not visible after 12 seconds')
+
     def test_resolved_card_cached_until_dom_changes(self):
         from local_discovery import discover
         self.page.set_content(self.feed(second_missing=True))

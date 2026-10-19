@@ -54,7 +54,8 @@ def _run_group(adapter, *, email, password, source_url, include_replies, progres
         queue.update(task,'queued' if attempts<3 else 'failed',error=f'{type(error).__name__}: {error}')
         if attempts>=3:
             errors.append(task['post_id'])
-        progress('running',min(92,15+saved_count),f'Bài {task["post_id"]} tải lỗi; đã giữ tác vụ để thử lại.')
+        detail=' '.join(str(error).split())[:260]
+        progress('running',min(92,15+saved_count),f'Bài {task["post_id"]} tải lỗi: {detail} Đã giữ tác vụ để thử lại.')
 
     def validate_capture(task, post, comments):
         if adapter._group_key_from_url(post['url']) not in keys or post_id(post['url'])!=task['post_id']:

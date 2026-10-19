@@ -63,7 +63,7 @@ Các thiết lập có trong [web/.env.example](web/.env.example):
 | `web/data/media/` | Ảnh đã tải và bộ đệm OCR. |
 | `web/.playwright-profile/` | Phiên đăng nhập Chrome trên máy. |
 
-Giữ tùy chọn **Tiếp tục lịch sử từ điểm đã lưu** để khôi phục các permalink chưa đọc, rồi tiếp tục phân trang nếu điểm cũ còn tương thích. Bài chưa có trong kho được ưu tiên; các bài đã lưu nhưng thiếu dữ liệu được giữ lại để bổ sung khi đã duyệt hết phần lịch sử còn lại. Bỏ chọn để tìm bài từ đầu feed; dữ liệu đã lưu vẫn giữ nguyên và bài đã hoàn tất vẫn được bỏ qua.
+Giữ tùy chọn **Tiếp tục lịch sử từ điểm đã lưu** để khôi phục các permalink chưa đọc và chưa báo lỗi, rồi tiếp tục phân trang nếu điểm cũ còn tương thích. Bài chưa có trong kho được ưu tiên; các bài đã lưu nhưng thiếu dữ liệu và các permalink từng tải lỗi được giữ lại để thử khi đã duyệt hết phần lịch sử còn lại. Bỏ chọn để tìm bài từ đầu feed; dữ liệu đã lưu vẫn giữ nguyên và bài đã hoàn tất vẫn được bỏ qua.
 
 Điểm phân trang gắn với tài khoản và chế độ sắp xếp. Đổi tài khoản có thể khiến điểm cũ không dùng được, dù kho dữ liệu và các permalink đang chờ vẫn còn. Chỉ sửa `.env` không tự thay đổi phiên Chrome đã đăng nhập.
 

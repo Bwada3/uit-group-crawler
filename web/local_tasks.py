@@ -54,11 +54,11 @@ class TaskQueue:
             # Inspect identities only: comment checkpoints can be large. Media
             # recovery needs no Facebook read; unseen posts precede old retries.
             candidates = connection.execute(
-                "SELECT rowid,post_id,state,payload_json!='' AS checkpoint FROM scrape_tasks "
+                "SELECT rowid,post_id,state,payload_json!='' AS checkpoint,error!='' AS previous_error FROM scrape_tasks "
                 "WHERE source_key=? AND state IN ('queued','media_pending')", (self.key,)).fetchall()
             def priority(row):
                 if row['state'] == 'media_pending': return 0
-                return 2 if row['post_id'] in self.captured_ids or row['checkpoint'] else 1
+                return 2 if row['post_id'] in self.captured_ids or row['checkpoint'] or row['previous_error'] else 1
             candidates = [row for row in candidates if not unread_only or priority(row) < 2]
             if not candidates:
                 return None
@@ -92,9 +92,9 @@ class TaskQueue:
             return connection.execute("SELECT COUNT(*) FROM scrape_tasks WHERE source_key=? AND state IN ('queued','media_pending')",(self.key,)).fetchone()[0]
 
     def unread_count(self) -> int:
-        """Pending Facebook reads which have never produced stored content."""
+        """Fresh pending reads without stored content or an earlier load error."""
         with store._connect() as connection:
             rows = connection.execute(
-                "SELECT post_id FROM scrape_tasks WHERE source_key=? AND state='queued' AND payload_json=''",
+                "SELECT post_id FROM scrape_tasks WHERE source_key=? AND state='queued' AND payload_json='' AND error=''",
                 (self.key,)).fetchall()
         return sum(row[0] not in self.captured_ids for row in rows)
