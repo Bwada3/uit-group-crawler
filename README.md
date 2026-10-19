@@ -116,10 +116,10 @@ Số liệu được đọc từ SQLite trong bản dữ liệu tải về.
 
 | Hạng mục | Kết quả |
 | --- | --- |
-| Bài đăng trong kho | 14.970 |
-| Bình luận và câu trả lời trong kho | 81.711 |
-| Lượt thả cảm xúc trên bài đăng đã ghi nhận | 120.182 |
-| Lượt chia sẻ bài đăng đã ghi nhận | 6.208 |
+| Bài đăng trong kho | 25.452 |
+| Bình luận và câu trả lời trong kho | 135.718 |
+| Lượt thả cảm xúc trên bài đăng đã ghi nhận | 211.903 |
+| Lượt chia sẻ bài đăng đã ghi nhận | 8.754 |
 
 Tổng cảm xúc và lượt chia sẻ được cộng từ số liệu đã đọc được trên bài đăng; các giá trị chưa xác định không được cộng vào tổng.
 
@@ -127,7 +127,7 @@ Các bài chưa hoàn tất được giữ lại để có thể xử lý tiếp
 
 ### Tải dữ liệu
 
-[Tải ZIP kho dữ liệu](https://github.com/Bwada3/uit-group-crawler/releases/download/data-snapshot-20261019-133540/uit-group-crawler-data.zip) · [Xem Release](https://github.com/Bwada3/uit-group-crawler/releases/tag/data-snapshot-20261019-133540)
+[Tải ZIP kho dữ liệu](https://github.com/Bwada3/uit-group-crawler/releases/download/data-snapshot-20261019-231940/uit-group-crawler-data.zip) · [Xem Release](https://github.com/Bwada3/uit-group-crawler/releases/tag/data-snapshot-20261019-231940)
 
 ZIP gồm SQLite, media và bộ đệm OCR, giữ cấu trúc `web/data/`. Để khôi phục, dừng server, chuyển thư mục `web/data` đang có sang nơi sao lưu rồi giải nén ZIP vào thư mục gốc dự án. File `.env` và thư mục `.playwright-profile` không nằm trong ZIP.
 
