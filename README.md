@@ -112,18 +112,24 @@ Các kiểm thử dùng cơ sở dữ liệu tạm và phản hồi giả; khôn
 
 ### Kho dữ liệu
 
-Số liệu được đọc trực tiếp từ SQLite.
+Số liệu được đọc từ SQLite trong bản dữ liệu tải về.
 
 | Hạng mục | Kết quả |
 | --- | --- |
 | Bài đăng trong kho | 14.970 |
-| Bình luận và câu trả lời trong kho | 81.708 |
-| Lượt thả cảm xúc trên bài đăng đã ghi nhận | 120.213 |
+| Bình luận và câu trả lời trong kho | 81.711 |
+| Lượt thả cảm xúc trên bài đăng đã ghi nhận | 120.182 |
 | Lượt chia sẻ bài đăng đã ghi nhận | 6.208 |
 
 Tổng cảm xúc và lượt chia sẻ được cộng từ số liệu đã đọc được trên bài đăng; các giá trị chưa xác định không được cộng vào tổng.
 
-Các bài chưa hoàn tất được giữ lại để có thể xử lý tiếp. GitHub chỉ chứa mã nguồn và số liệu tổng hợp này; nội dung bài đăng, bình luận, media, thông tin đăng nhập và cơ sở dữ liệu nằm trên máy.
+Các bài chưa hoàn tất được giữ lại để có thể xử lý tiếp. Mã nguồn nằm trong repo; cơ sở dữ liệu, media và bộ đệm OCR được cung cấp qua GitHub Release. Thông tin đăng nhập Facebook và phiên Chrome được giữ trên máy.
+
+### Tải dữ liệu
+
+[Tải ZIP kho dữ liệu](https://github.com/Bwada3/uit-group-crawler/releases/download/data-snapshot-20261019-133540/uit-group-crawler-data.zip) · [Xem Release](https://github.com/Bwada3/uit-group-crawler/releases/tag/data-snapshot-20261019-133540)
+
+ZIP gồm SQLite, media và bộ đệm OCR, giữ cấu trúc `web/data/`. Để khôi phục, dừng server, chuyển thư mục `web/data` đang có sang nơi sao lưu rồi giải nén ZIP vào thư mục gốc dự án. File `.env` và thư mục `.playwright-profile` không nằm trong ZIP.
 
 ### Lưu dữ liệu trong lúc scrape
 
